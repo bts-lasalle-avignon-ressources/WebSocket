@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Client ESP32-Wheather-Bluedot</title>
+    <style>
+        // sur la base de https://socket.io/get-started/chat
+        body {
+            margin: 0;
+            padding-bottom: 3rem;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        #formulaire {
+            background: rgba(0, 0, 0, 0.15);
+            padding: 0.25rem;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            height: 3rem;
+            box-sizing: border-box;
+            backdrop-filter: blur(10px);
+        }
+
+        #formulaire>button {
+            background: #333;
+            border: none;
+            padding: 0 1rem;
+            margin: 0.25rem;
+            border-radius: 3px;
+            outline: none;
+            color: #fff;
+        }
+
+        #envoi {
+            border: none;
+            padding: 0 1rem;
+            flex-grow: 1;
+            border-radius: 2rem;
+            margin: 0.25rem;
+        }
+
+        #envoi:focus {
+            outline: none;
+        }
+
+        #messages {
+            list-style-type: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        #messages>li {
+            padding: 0.5rem 1rem;
+        }
+
+        #messages>li:nth-child(odd) {
+            background: #efefef;
+        }
+    </style>
+</head>
+
+<body>
+    <ul id="messages"></ul>
+    <form id="formulaire" action="">
+        <input id="envoi" placeholder="état : on|off ou période en ms" autocomplete="off" /><button>Envoyer</button>
+    </form>
+    <script>
+        // pour l'affichage des messages reçus
+        var messages = document.getElementById('messages');
+        // instancie une Websocket
+        const websocket = new WebSocket('ws://192.168.1.38:5000');
+        // pour l'envoi des messages
+        var formulaire = document.getElementById('formulaire');
+        var envoi = document.getElementById('envoi');
+
+        // Gestion de l'envoi des messages
+        formulaire.addEventListener('submit', function (e) {
+            e.preventDefault();
+            if (envoi.value) {
+                var message;
+                if (envoi.value == "on" || envoi.value == "off" || envoi.value == "true" || envoi.value == "false" || envoi.value == "1" || envoi.value == "0") {
+                    message = {
+                        etat: envoi.value,
+                        date: Date.now(),
+                    };
+                    afficherMessage("> état " + envoi.value);
+                }
+                else {
+                    if (parseInt(envoi.value) != NaN && parseInt(envoi.value) >= 1000) {
+                        message = {
+                            periode: envoi.value,
+                            date: Date.now(),
+                        };
+                        afficherMessage("> période " + envoi.value + " ms");
+                    }
+                }
+                if (typeof message === 'object' && message !== null) {
+                    websocket.send(JSON.stringify(message));
+                    console.log('> ' + JSON.stringify(message));
+                    afficherMessage("> " + JSON.stringify(message));
+                }
+                envoi.value = '';
+            }
+        });
+
+        // Gestion des évènements (open, message, error et close)
+        websocket.addEventListener('open', function (event) {
+            console.log('Connexion établie');
+        });
+        websocket.addEventListener('message', function (event) {
+            console.log('< ' + event.data);
+            afficherMessage("< " + "" + event.data);
+            var message = JSON.parse(event.data);
+            if (message.type == "mesure") {
+                var mesures = "< ";
+                // JSON : {"luminosite":352,"temperature":28.26000023,"humidite":45,"pression":1013,"type":"mesure"}
+                if (message.hasOwnProperty("luminosite")) {
+                    mesures += "éclairement : " + message.luminosite + " lux ";
+                }
+                if (message.hasOwnProperty("temperature")) {
+                    mesures += "température : " + message.temperature + " °C ";
+                }
+                if (message.hasOwnProperty("humidite")) {
+                    mesures += "humidité : " + message.humidite + " % ";
+                }
+                if (message.hasOwnProperty("pression")) {
+                    mesures += "pression : " + message.luminosite + " hPa ";
+                }
+                afficherMessage(mesures);
+            }
+            else if (message.type == "etat") {
+                // JSON : {"type":"etat","etat":"off"}
+                afficherMessage("< " + "état " + message.etat);
+            }
+            else if (message.type == "periode") {
+                // JSON : {"type":"periode","periode":"5000"}
+                afficherMessage("< " + "période " + message.periode + " ms");
+            }
+        });
+        // Autre forme
+        websocket.onerror = function (error) {
+            console.log('Erreur !');
+        };
+        websocket.onclose = function (event) {
+            if (event.wasClean) {
+                console.log('Connexion fermée (code=${event.code} reason=${event.reason})');
+            } else {
+                // serveur arrêté ou plus de réseau
+                console.log('Connexion fermée');
+            }
+        };
+
+        function afficherMessage(nouveauMessage) {
+            const message = document.createElement("li");
+            const contenu = document.createTextNode(nouveauMessage);
+            message.appendChild(contenu);
+            messages.appendChild(message);
+            window.scrollTo(0, document.body.scrollHeight);
+        }
+    </script>
+</body>
+
+</html>

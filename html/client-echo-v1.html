@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Client WebSocket v1</title>
+    <script>
+        const messages = document.createElement("ul");
+        // instancie une Websocket
+        const websocket = new WebSocket('ws://localhost:5000');
+        // Gestion des évènements (open, message, error et close)
+        websocket.addEventListener('open', function (event) {
+            console.log('Connexion établie');
+            message = 'Hello world!';
+            websocket.send(message);
+            console.log('> ' + message);
+            document.body.appendChild(messages);
+        });
+        websocket.addEventListener('message', function (event) {
+            console.log('< ' + event.data);
+            const message = document.createElement("li");
+            const contenu = document.createTextNode(event.data);
+            message.appendChild(contenu);
+            messages.appendChild(message);
+        });
+        // Autre forme
+        websocket.onerror = function (error) {
+            console.log('Erreur !');
+        };
+        websocket.onclose = function (event) {
+            if (event.wasClean) {
+                console.log('Connexion fermée (code=${event.code} reason=${event.reason})');
+            } else {
+                // serveur arrêté ou plus de réseau
+                console.log('Connexion fermée');
+            }
+        };
+
+        // Clic bouton
+        function hello() {
+            message = 'Hello world!';
+            console.log('> ' + message);
+            websocket.send(message);
+        }
+    </script>
+</head>
+
+<body>
+    <button onclick="hello()">Envoyer</button>
+</body>
+
+</html>
